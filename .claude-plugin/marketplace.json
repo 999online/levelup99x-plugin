@@ -1,0 +1,18 @@
+{
+  "name": "levelup99x-plugin",
+  "owner": {
+    "name": "999online"
+  },
+  "metadata": {
+    "description": "Marketplace for the LevelUp99x Jin Coach plugin — Pro-tier quest coaching in your terminal.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "levelup-coach",
+      "source": "./plugins/levelup-coach/",
+      "description": "Jin Coach — LevelUp99x's Pro AI companion in your terminal: fetches your live quest line, coaches you through the real work, runs the Knowledge Check, and syncs XP, levels, ranks, streaks, and trophies back to the app.",
+      "version": "0.1.0"
+    }
+  ]
+}

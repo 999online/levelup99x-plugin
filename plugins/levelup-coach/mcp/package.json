@@ -1,0 +1,16 @@
+{
+  "name": "levelup-coach-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-dependency MCP server wrapping the LevelUp99x coach API (state, quest, check, complete, save token).",
+  "bin": {
+    "levelup-coach-mcp": "./server.js"
+  },
+  "scripts": {
+    "selftest": "node server.js --selftest"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

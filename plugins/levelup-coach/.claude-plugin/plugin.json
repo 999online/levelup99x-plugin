@@ -1,0 +1,16 @@
+{
+  "name": "levelup-coach",
+  "description": "Jin Coach — LevelUp99x's Pro AI companion in your terminal. Run /jin to be coached through your current quest (repo-aware for technical topics), take the Knowledge Check conversationally, and push completions back to the app: XP, levels, ranks, streaks, and trophies.",
+  "version": "0.1.0",
+  "author": {
+    "name": "999online"
+  },
+  "repository": "https://github.com/999online/levelup99x-plugin",
+  "commands": [
+    "./commands/jin.md"
+  ],
+  "skills": [
+    "./skills/coach"
+  ],
+  "mcpServers": "./.mcp.json"
+}
