@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Marketplace for the LevelUp99x Jin Coach plugin — Pro-tier quest mentoring in your terminal.",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "plugins": [
     {
       "name": "levelup-coach",
       "source": "./plugins/levelup-coach/",
       "description": "Jin Coach — LevelUp99x's Pro AI mentor in your terminal: assesses your real work against your live quest line, syncs your true position to the app, coaches the next step, and renders a local progress dashboard. Drill quests keep the conversational Knowledge Check.",
-      "version": "0.2.0"
+      "version": "0.2.1"
     }
   ]
 }
