@@ -18,8 +18,10 @@ node server.js --selftest
 | `levelup_save_config` | writes `~/.levelup99x.json` | `{ saved, path }` |
 | `levelup_state` | `GET /api/coach/state` | `{ entitled, learner: { level, streak, totalXp }, focusSkill }` |
 | `levelup_get_quest` | `GET /api/coach/quest[?skillId=]` | `{ skill, quest }` (checks without answers) |
-| `levelup_submit_check` | `POST /api/coach/quest/:id/check` | `{ results: [{ correct, explanation }], passed, perfect }` |
-| `levelup_complete_quest` | `POST /api/coach/quest/:id/complete` | `{ xpGained, perfectBonus, ..., trophies, nextQuest }` |
+| `levelup_get_plan` | `GET /api/coach/plan[?skillId=]` | full quest-line map: `{ skill (+status, planDays, totalChapters), quests: [{ metadata, status, objectives }] }` — no materials, no checks |
+| `levelup_place` | `POST /api/coach/plan/place` | `{ placed, validated, nextQuest, skill }` — skip-ahead placement, zero XP |
+| `levelup_submit_check` | `POST /api/coach/quest/:id/check` | `{ results: [{ correct, explanation }], passed, perfect }` (drill quests only) |
+| `levelup_complete_quest` | `POST /api/coach/quest/:id/complete` | `{ xpGained, perfectBonus, ..., trophies, nextQuest }` (drill quests only) |
 
 ## Config (no env vars required)
 

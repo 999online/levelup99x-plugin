@@ -1,7 +1,7 @@
 {
   "name": "levelup-coach",
-  "description": "Jin Coach — LevelUp99x's Pro AI companion in your terminal. Run /jin to be coached through your current quest (repo-aware for technical topics), take the Knowledge Check conversationally, and push completions back to the app: XP, levels, ranks, streaks, and trophies.",
-  "version": "0.1.0",
+  "description": "Jin Coach — LevelUp99x's Pro AI mentor in your terminal. Run /jin and Jin assesses your real work against your quest line, places you where your code proves you are, coaches the next step, and renders a local progress dashboard. Drill quests keep the conversational Knowledge Check; coding XP is claimed in the app.",
+  "version": "0.2.0",
   "author": {
     "name": "999online"
   },
