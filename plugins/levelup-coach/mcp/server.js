@@ -7,7 +7,7 @@
  * Uses Node 18+ global `fetch`.
  *
  * THE LINE (privacy allowlist): the only data that ever leaves this machine is
- *   - quest/skill IDs,
+ *   - quest/skill IDs (including the placement target `upToQuestId`),
  *   - chosen Knowledge Check answer indexes,
  *   - completion intents (an empty POST body),
  *   - the plugin version (x-levelup-plugin header).
@@ -26,6 +26,8 @@
  *   levelup_save_config     write ~/.levelup99x.json (blu_ token + optional apiUrl), mode 0600
  *   levelup_state           GET  /api/coach/state
  *   levelup_get_quest       GET  /api/coach/quest[?skillId=]
+ *   levelup_get_plan        GET  /api/coach/plan[?skillId=]
+ *   levelup_place           POST /api/coach/plan/place        { upToQuestId }
  *   levelup_submit_check    POST /api/coach/quest/:id/check   { answers }
  *   levelup_complete_quest  POST /api/coach/quest/:id/complete {}
  *
@@ -42,7 +44,7 @@ import { createInterface } from 'node:readline';
 // Production LevelUp99x API origin (apps/api, Cloudflare Workers).
 const DEFAULT_API_URL = 'https://api.levelup99x.999online.ai';
 const PROTOCOL_VERSION = '2025-06-18';
-const PLUGIN_VERSION = '0.1.0';
+const PLUGIN_VERSION = '0.2.0';
 const TOKEN_PREFIX = 'blu_';
 // Abort any API call that hasn't answered within this window (fetch has no default timeout).
 const API_TIMEOUT_MS = 20_000;
@@ -69,6 +71,27 @@ export function questPath(questId, action) {
 export function getQuestPath(skillId) {
   if (skillId === undefined || skillId === null || skillId === '') return '/api/coach/quest';
   return `/api/coach/quest?skillId=${encodeURIComponent(validateId(skillId, 'skillId'))}`;
+}
+
+/** Build the GET /api/coach/plan path, with the optional skillId as the only query param. */
+export function getPlanPath(skillId) {
+  if (skillId === undefined || skillId === null || skillId === '') return '/api/coach/plan';
+  return `/api/coach/plan?skillId=${encodeURIComponent(validateId(skillId, 'skillId'))}`;
+}
+
+/**
+ * Validate AND strip a placement input to the allowlist. Returns ONLY
+ * { body: { upToQuestId } } as a positive integer — the API's strict schema
+ * takes a JSON number, and anything else on the input is discarded here.
+ */
+export function buildPlacePayload(input) {
+  if (!input || typeof input !== 'object') throw new Error('input must be an object');
+  let id = input.upToQuestId;
+  if (typeof id === 'string' && /^[0-9]{1,15}$/.test(id)) id = Number(id);
+  if (!Number.isInteger(id) || id <= 0)
+    throw new Error('upToQuestId must be a positive integer quest id');
+  // allowlist only — nothing outside { upToQuestId } reaches the wire (THE LINE)
+  return { body: { upToQuestId: id } };
 }
 
 /**
@@ -304,13 +327,51 @@ const TOOLS = [
     },
   },
   {
+    name: 'levelup_get_plan',
+    description:
+      "The learner's full quest-line map — focus skill by default, or a specific line via skillId. " +
+      'Returns the skill (id, title, icon, domain, level, rank, chapter, status, planDays, ' +
+      'startedAt, completedAt, totalChapters) and every generated quest with metadata + status ' +
+      "('locked' | 'available' | 'validated' | 'completed') and objectives — NO materials, NO " +
+      'checks. Use it to assess placement against real work and to render the local progress ' +
+      'dashboard. Readable even while the next chapter is forging (see skill.status).',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        skillId: { type: 'string', description: 'Optional skill id to map instead of the focus skill' },
+      },
+    },
+  },
+  {
+    name: 'levelup_place',
+    description:
+      'Skip-ahead placement: mark every uncleared quest up to AND including upToQuestId as ' +
+      "'validated' — position advances, ZERO XP, no streak, no trophies — and open the next quest " +
+      'in the line. ONLY call this after the learner explicitly confirmed the placement in this ' +
+      "conversation, and only for quests their real work clearly demonstrates. The line's final " +
+      'quest can never be validated. Idempotent; only the quest id is sent.',
+    inputSchema: {
+      type: 'object',
+      required: ['upToQuestId'],
+      additionalProperties: false,
+      properties: {
+        upToQuestId: {
+          type: 'integer',
+          description: 'Id of the last quest the learner has already demonstrated',
+        },
+      },
+    },
+  },
+  {
     name: 'levelup_submit_check',
     description:
-      "Submit the learner's Knowledge Check answer indexes for a quest. The server grades them and " +
-      'returns per-question { correct, explanation } results plus `passed` and `perfect` flags. ' +
-      'Only the answer indexes are sent — never send file contents, paths, repo names, or any other ' +
-      'data. Retries are allowed after walking through the explanations; `perfect` only comes from ' +
-      'a flawless first run.',
+      "Submit the learner's Knowledge Check answer indexes for a quest. DRILL (non-coding) quests " +
+      'only — for coding/hands-on quests Jin never grades or completes; the learner claims XP in ' +
+      'the app. The server grades and returns per-question { correct, explanation } results plus ' +
+      '`passed` and `perfect` flags. Only the answer indexes are sent — never send file contents, ' +
+      'paths, repo names, or any other data. Retries are allowed after walking through the ' +
+      'explanations; `perfect` only comes from a flawless first run.',
     inputSchema: {
       type: 'object',
       required: ['questId', 'answers'],
@@ -331,6 +392,8 @@ const TOOLS = [
     name: 'levelup_complete_quest',
     description:
       'Complete an available quest whose Knowledge Check was passed via levelup_submit_check. ' +
+      'DRILL (non-coding) quests only — coding/hands-on quests are completed by the learner in ' +
+      'the app, never from the terminal. ' +
       'Returns the celebration payload: xpGained, perfectBonus, skillLeveledUp, learnerLeveledUp, ' +
       'newRank, rankUp, streak, learnerLevel, planComplete, trophies, and a nextQuest teaser. ' +
       'Never call this unless the server reported the check as passed — completions are validated ' +
@@ -357,6 +420,13 @@ async function callTool(name, args) {
   }
   if (name === 'levelup_get_quest') {
     return api(getQuestPath(args?.skillId), { method: 'GET' });
+  }
+  if (name === 'levelup_get_plan') {
+    return api(getPlanPath(args?.skillId), { method: 'GET' });
+  }
+  if (name === 'levelup_place') {
+    const { body } = buildPlacePayload(args); // validate + strip to allowlist
+    return api('/api/coach/plan/place', { method: 'POST', body: JSON.stringify(body) });
   }
   if (name === 'levelup_submit_check') {
     const { questId, body } = buildCheckPayload(args); // validate + strip to allowlist
@@ -463,6 +533,23 @@ async function selftest() {
   const complete = buildCompletePayload({ questId: 'q1', proofNote: 'leak', perfect: true });
   assert(JSON.stringify(complete.body) === '{}', 'complete body must be empty JSON');
 
+  // placement payload strips smuggled fields, keeps only { upToQuestId } as a number
+  const place = buildPlacePayload({
+    upToQuestId: 42,
+    evidence: 'file contents',
+    repoName: 'private-repo',
+  });
+  assert(JSON.stringify(place.body) === '{"upToQuestId":42}', 'place body not allowlisted');
+  assert(
+    JSON.stringify(buildPlacePayload({ upToQuestId: '42' }).body) === '{"upToQuestId":42}',
+    'numeric-string upToQuestId not coerced to a JSON number'
+  );
+  assert(throws(() => buildPlacePayload({ upToQuestId: 'q_abc' })), 'non-numeric upToQuestId not rejected');
+  assert(throws(() => buildPlacePayload({ upToQuestId: 4.5 })), 'non-integer upToQuestId not rejected');
+  assert(throws(() => buildPlacePayload({ upToQuestId: -1 })), 'negative upToQuestId not rejected');
+  assert(throws(() => buildPlacePayload({ upToQuestId: 0 })), 'zero upToQuestId not rejected');
+  assert(throws(() => buildPlacePayload({})), 'missing upToQuestId not rejected');
+
   // answer validation
   assert(throws(() => buildCheckPayload({ questId: 'q1', answers: [] })), 'empty answers not rejected');
   assert(throws(() => buildCheckPayload({ questId: 'q1', answers: [1.5] })), 'non-integer answer not rejected');
@@ -485,6 +572,9 @@ async function selftest() {
   assert(getQuestPath() === '/api/coach/quest', 'default quest path wrong');
   assert(getQuestPath('sk_9') === '/api/coach/quest?skillId=sk_9', 'skillId quest path wrong');
   assert(throws(() => getQuestPath('a b')), 'malformed skillId not rejected');
+  assert(getPlanPath() === '/api/coach/plan', 'default plan path wrong');
+  assert(getPlanPath(7) === '/api/coach/plan?skillId=7', 'numeric skillId plan path wrong');
+  assert(throws(() => getPlanPath('a b')), 'malformed plan skillId not rejected');
 
   // error mapping (401 / 403 / 429 / envelope passthrough) — never includes a token
   const err401 = mapApiError(401, { error: { code: 'unauthorized', message: 'bad token' } }, null);
@@ -510,7 +600,9 @@ async function selftest() {
     JSON.stringify(names) ===
       JSON.stringify([
         'levelup_complete_quest',
+        'levelup_get_plan',
         'levelup_get_quest',
+        'levelup_place',
         'levelup_save_config',
         'levelup_state',
         'levelup_submit_check',
@@ -583,9 +675,9 @@ async function selftest() {
   assert(resolveApiUrl() === DEFAULT_API_URL || resolveApiUrl().startsWith('http'), 'default apiUrl broken');
 
   console.log(
-    'selftest OK — allowlist strip, empty complete body, id/URL validation (incl. numeric coercion), ' +
-      'error mapping + sanitization, JSON-RPC dispatch (incl. tools/call isError), apiUrl loopback rule, ' +
-      'config round-trip + change notice + precedence'
+    'selftest OK — allowlist strip (check + place), empty complete body, id/URL validation (incl. ' +
+      'numeric coercion), plan/place paths, error mapping + sanitization, JSON-RPC dispatch (incl. ' +
+      'tools/call isError), apiUrl loopback rule, config round-trip + change notice + precedence'
   );
 }
 
