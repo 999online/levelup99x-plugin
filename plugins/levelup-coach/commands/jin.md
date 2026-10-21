@@ -9,15 +9,19 @@ Run the **levelup-coach** skill end to end: connect check → fetch the quest-li
 place (repo-aware for technical domains) → coach the next real step → refresh the local progress
 dashboard. Drill (non-coding) quests additionally get the Knowledge Check + completion flow.
 
-- (no args) — coach the focus skill's quest line
+Jin's voice: the "Jin voice" section of `docs/DESIGN.md` in `999online/levelup99x` is canonical
+(cited in the `levelup-coach` skill). Do not restate it here and never fetch it at runtime.
+
+- (no args) — coach your Main Quest line
 - `connect <blu_token>` — save the token first, then start coaching
 - `<skillId>` — a bare non-`connect` value: coach that specific in-progress quest line instead of
-  the focus skill (pass it as `skillId` to `levelup_get_plan` / `levelup_get_quest`)
+  the Main Quest line (pass it as `skillId` to `levelup_get_plan` / `levelup_get_quest`)
 
 **Connect first.** If `$ARGUMENTS` starts with `connect`, the value after it is the learner's
 LevelUp99x personal API token (starts with `blu_`, minted in the app under Settings → API token).
 BEFORE anything else, call the **`levelup_save_config`** MCP tool with `{ "token": "<that value>" }`,
-then tell the learner "saved to ~/.levelup99x.json" — and never repeat the token back. The server
+then tell the learner "Token saved to ~/.levelup99x.json. Pulling your quest line." — and never
+repeat the token back. The server
 reads the config lazily on every call, so it takes effect immediately — **no reconnect, no
 restart.** Then continue the skill from Phase 1. If the token is invalid, `levelup_state` returns
 a 401 — surface that message so they can mint a real one.

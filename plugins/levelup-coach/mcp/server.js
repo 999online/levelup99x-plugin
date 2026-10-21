@@ -44,7 +44,7 @@ import { createInterface } from 'node:readline';
 // Production LevelUp99x API origin (apps/api, Cloudflare Workers).
 const DEFAULT_API_URL = 'https://api.levelup99x.999online.ai';
 const PROTOCOL_VERSION = '2025-06-18';
-const PLUGIN_VERSION = '0.2.0';
+const PLUGIN_VERSION = '0.2.2';
 const TOKEN_PREFIX = 'blu_';
 // Abort any API call that hasn't answered within this window (fetch has no default timeout).
 const API_TIMEOUT_MS = 20_000;
@@ -224,7 +224,7 @@ export function mapApiError(status, body, retryAfter) {
   if (status === 401)
     return 'Your LevelUp99x token is invalid or revoked — reconnect: mint a new token in the app (Settings -> API token) and save it with levelup_save_config.';
   if (status === 403)
-    return `Jin is sleeping (Pro feature)${detail}. Wake him by upgrading to Pro in the LevelUp99x app — entitlement takes effect on the next call, no reinstall needed.`;
+    return `Jin is sleeping. No one is watching your quest line. Upgrade to Pro in the LevelUp99x app — it takes effect on the next call, no reinstall — and Jin wakes to keep watch and hold you to the plan, in the app and here in your terminal.${detail}`;
   if (status === 429) {
     const wait = retryAfter ? ` Try again in ${retryAfter} seconds.` : ' Try again shortly.';
     return `Rate limited by the LevelUp99x API.${wait}${detail}`;
@@ -237,9 +237,9 @@ async function api(path, init = {}) {
   const token = resolveToken();
   if (!token) {
     const err = new Error(
-      'NO_TOKEN: Jin Coach is not connected yet. Get your personal API token from the LevelUp99x app ' +
+      'NO_TOKEN: Jin Coach is not connected yet. Mint your personal API token in the LevelUp99x app ' +
         '(Settings -> API token, it starts with "blu_"), then save it with the levelup_save_config tool. ' +
-        'It takes effect immediately — no restart needed.'
+        'It takes effect immediately, no restart — your next quest is waiting.'
     );
     err.code = 'NO_TOKEN';
     throw err;
@@ -576,13 +576,21 @@ async function selftest() {
   assert(getPlanPath(7) === '/api/coach/plan?skillId=7', 'numeric skillId plan path wrong');
   assert(throws(() => getPlanPath('a b')), 'malformed plan skillId not rejected');
 
+  // Jin voice strings: no emoji, no Title-case role name, no exclamation cheer
+  const jinClean = (s) => !/\p{Extended_Pictographic}/u.test(s) && !/\bHunter\b/.test(s) && !s.includes('!') && !/[✦💤]/u.test(s);
+
   // error mapping (401 / 403 / 429 / envelope passthrough) — never includes a token
   const err401 = mapApiError(401, { error: { code: 'unauthorized', message: 'bad token' } }, null);
   assert(err401.includes('invalid or revoked') && err401.includes('reconnect'), '401 mapping wrong');
   const err403 = mapApiError(403, { error: { code: 'coach_not_entitled', message: 'Pro required' } }, null);
-  assert(err403.includes('Jin is sleeping') && err403.includes('Pro'), '403 mapping wrong');
+  assert(err403.startsWith('Jin is sleeping') && err403.includes('Pro'), '403 mapping wrong');
+  assert(err403.includes('watch') && err403.indexOf('watch') < err403.indexOf('terminal'), '403 must sell the watching first');
+  assert(err403.endsWith('(Pro required)'), '403 API detail not appended at the tail');
+  assert(jinClean(err403), '403 message breaks the Jin voice');
+  assert(jinClean(err401), '401 message breaks the Jin voice');
   const err429 = mapApiError(429, { error: { code: 'rate_limited', message: 'slow down' } }, '42');
   assert(err429.includes('42 seconds'), '429 Retry-After not surfaced');
+  assert(jinClean(err429), '429 message breaks the Jin voice');
   const err422 = mapApiError(422, { error: { code: 'quest_not_available', message: 'quest is locked' } }, null);
   assert(err422.includes('422') && err422.includes('quest is locked'), '422 envelope not surfaced');
   // envelope sanitization: control/escape chars stripped, length capped — on BOTH code and message
@@ -671,13 +679,25 @@ async function selftest() {
   } catch {
     /* best-effort cleanup */
   }
+  // NO_TOKEN: no env token and no config file -> api() throws before any fetch
+  process.env.LEVELUP_CONFIG_PATH = join(tmpdir(), `levelup-coach-selftest-missing-${process.pid}.json`);
+  let noToken;
+  try {
+    await api('/api/coach/state');
+  } catch (e) {
+    noToken = e;
+  }
+  assert(noToken && noToken.code === 'NO_TOKEN', 'missing token did not raise NO_TOKEN');
+  assert(noToken.message.startsWith('NO_TOKEN:'), 'NO_TOKEN prefix missing');
+  assert(jinClean(noToken.message), 'NO_TOKEN message breaks the Jin voice');
   delete process.env.LEVELUP_CONFIG_PATH;
   assert(resolveApiUrl() === DEFAULT_API_URL || resolveApiUrl().startsWith('http'), 'default apiUrl broken');
 
   console.log(
     'selftest OK — allowlist strip (check + place), empty complete body, id/URL validation (incl. ' +
       'numeric coercion), plan/place paths, error mapping + sanitization, JSON-RPC dispatch (incl. ' +
-      'tools/call isError), apiUrl loopback rule, config round-trip + change notice + precedence'
+      'tools/call isError), apiUrl loopback rule, config round-trip + change notice + precedence, ' +
+      'Jin voice strings (403 + NO_TOKEN)'
   );
 }
 

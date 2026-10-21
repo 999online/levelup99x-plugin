@@ -49,7 +49,7 @@ file location (used by the self-check).
 | API response | Tool result |
 | --- | --- |
 | 401 | "token invalid or revoked — reconnect" (mint a new token in Settings, save via `levelup_save_config`) |
-| 403 | "Jin is sleeping (Pro feature)" + upgrade pointer |
+| 403 | "Jin is sleeping — no one is watching your quest line" + upgrade pointer (API detail appended) |
 | 429 | rate-limited message surfacing `Retry-After` |
 | network failure | readable message naming the API URL, never the token |
 | other | status + the API's `{ error: { code, message } }` envelope |
