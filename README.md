@@ -1,7 +1,7 @@
 # LevelUp99x — Jin Coach plugin
 
-**Jin, in your terminal.** This Claude Code plugin brings LevelUp99x's Pro-tier AI companion out
-of the System window and into the place you actually train — as a **mentor, not an examiner**.
+**Jin, in your terminal.** This Claude Code plugin brings Jin, LevelUp99x's Pro-tier AI companion,
+out of the app and into the place you actually train — as a **mentor, not an examiner**.
 Run `/jin` and Jin fetches your live quest-line plan from the LevelUp99x API, inspects your real
 repo to see how far you've actually come, syncs your true position back to the app (skip-ahead
 **placement** — position credit, zero XP), coaches you through the next real step, and renders a
@@ -19,7 +19,8 @@ authenticated sync loop, gated server-side by your subscription tier. Coaching i
 your own Claude subscription.
 
 - **Pro learners**: Jin assesses, places, coaches, and syncs.
-- **Free learners**: Jin is sleeping. The plugin will tell you how to wake him. 💤
+- **Free learners**: Jin is sleeping — no one is watching your quest line. The plugin tells you how
+  to wake him.
 
 ## Install
 
@@ -63,7 +64,7 @@ connect flow (`http://localhost:8787`).
 4. **Coach** — the active quest as real work in your own repo. You drive; Jin guides.
 5. **Hand off** — objectives met? Claim the quest in the app: Knowledge Check, XP, streak,
    trophies all happen there.
-6. **Dashboard** — Jin writes `~/.levelup99x/progress-<skill>.html` (self-contained, local-only)
+6. **Dashboard** — Jin writes `~/.levelup99x/progress-<skillId>.html` (self-contained, local-only)
    with the quest map, your placement evidence, and what's next — and opens it in your browser.
 
 ## What leaves your machine (privacy allowlist)
@@ -74,10 +75,10 @@ to the LevelUp99x API:
 
 | Sent | Example |
 | --- | --- |
-| Quest / skill IDs | `q_abc123`, placement target `{ "upToQuestId": 42 }` |
+| Quest / quest-line IDs (`questId`, `skillId`) | `q_abc123`, placement target `{ "upToQuestId": 42 }` |
 | Your chosen Knowledge Check answer indexes (drill quests) | `[2, 0, 1, 3]` |
 | Completion intents (drill quests) | an empty `{}` POST to the complete endpoint |
-| Plugin version | `levelup-coach/0.2.0` header |
+| Plugin version | `levelup-coach/0.2.2` header |
 
 **Never sent — by construction:**
 
@@ -108,7 +109,7 @@ plugins/levelup-coach/
 ## Troubleshooting
 
 - **"token invalid or revoked"** — mint a fresh token in Settings and `/jin connect` again.
-- **"Jin is sleeping (Pro feature)"** — upgrade to Pro in the app; the next call picks it up, no
+- **"Jin is sleeping"** — upgrade to Pro in the app; the next call picks it up, no
   reinstall.
 - **Rate limited** — the message includes how long to wait.
 - **Placement rejected on the last quest** — by design: the final quest of a line is always
